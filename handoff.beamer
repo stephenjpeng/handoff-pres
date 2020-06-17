@@ -1,0 +1,362 @@
+\hypertarget{outline}{%
+\section{Outline}\label{outline}}
+
+\begin{frame}{Outline}
+\begin{enumerate}
+\tightlist
+\item
+  Small object data compression
+\item
+  Memcached benchmarking
+\item
+  OracleDB benchmarking
+\item
+  Steam data compression
+\end{enumerate}
+\end{frame}
+
+\hypertarget{small-object-data-compression}{%
+\section{Small object data
+compression}\label{small-object-data-compression}}
+
+\begin{frame}{Objective}
+\protect\hypertarget{objective}{}
+\begin{enumerate}
+\tightlist
+\item
+  Understand the potential benefit of a proprietary small object data
+  compression technique
+\item
+  Identify some open-source alternatives that could be used instead
+\item
+  Use case: Memcached user running FORSA can realize further
+  amplification benefits
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Dataset: Audioeye Memcached data dump
+  \end{itemize}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results}{}
+\begin{columns}[T]
+\begin{column}{0.4\textwidth}
+\includegraphics{/home/stpeng/fb/pres_images/ascii-binary-vplot.png}
+\includegraphics{/home/stpeng/fb/pres_images/sample-compress-ratio.png}
+\end{column}
+
+\begin{column}{0.6\textwidth}
+\begin{itemize}
+\tightlist
+\item
+  Large amount of text-based data stored in cache
+\item
+  Optimal compression algorithm depends on object type:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Small, text objects compress best under
+    \href{https://en.wikipedia.org/wiki/Lempel\%E2\%80\%93Ziv\%E2\%80\%93Welch}{LZW
+    encoding}
+  \item
+    Large binary files do better with
+    \href{https://en.wikipedia.org/wiki/Zstandard}{zstd} level 19
+  \end{itemize}
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\hypertarget{memcached-benchmarking}{%
+\section{Memcached benchmarking}\label{memcached-benchmarking}}
+
+\begin{frame}{Objective}
+\protect\hypertarget{objective-1}{}
+\begin{itemize}
+\tightlist
+\item
+  Extstore: allows Memcached to use disk space as a store for colder
+  items
+\item
+  Understand the performance benefit of FORSA + Memcached for various
+  applications:
+
+  \begin{enumerate}
+  \tightlist
+  \item
+    Batched workload
+  \item
+    Paced workload
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Procedure}
+\protect\hypertarget{procedure}{}
+\begin{itemize}
+\tightlist
+\item
+  Memcached compiled from source with Extstore
+\item
+  \href{https://github.com/memcached/mc-crusher/}{\textbf{\texttt{mc-crusher}}}
+  used to generate heavy Memcached workloads.
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Batched workload: 20 gets / request
+  \item
+    Paced workload: sleep 50ms between requests
+  \end{itemize}
+\end{itemize}
+
+~
+
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{block}{Memcached Config}
+\protect\hypertarget{memcached-config}{}
+\begin{longtable}[]{@{}lr@{}}
+\toprule
+Keys & \% PMEM\tabularnewline
+\midrule
+\endhead
+32MM & 40\%\tabularnewline
+\bottomrule
+\end{longtable}
+\end{block}
+\end{column}
+
+\begin{column}{0.5\textwidth}
+\begin{block}{VM Config}
+\protect\hypertarget{vm-config}{}
+\begin{longtable}[]{@{}lr@{}}
+\toprule
+RAM & Storage\tabularnewline
+\midrule
+\endhead
+8GB & 64GB\tabularnewline
+\bottomrule
+\end{longtable}
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-1}{}
+\begin{itemize}
+\tightlist
+\item
+  FORSA allows for a lower end system to conform to strict latency
+  requirements
+\end{itemize}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule
+& FORSA LEM & SSD\tabularnewline
+\midrule
+\endhead
+\# keys & 32,000,000 & 100,000,000\tabularnewline
+RAM & 8GB & 85GB\tabularnewline
+Treads & 8 & 32\tabularnewline
+VM & yes & no\tabularnewline
+\textbf{adj. keys / sec}1 & \textbf{200K} & \textbf{200K}\tabularnewline
+\bottomrule
+\end{longtable}
+
+1\(\max\left\{ kps : P(latency(kps) > 1ms) < 0.01 \right\}\)
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-2}{}
+\begin{itemize}
+\tightlist
+\item
+  Scaling down testing, FORSA provides much better throughput for a
+  proportionally identical workload
+\end{itemize}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule
+& FORSA LEM & SSD\tabularnewline
+\midrule
+\endhead
+\# keys & 32,000,000 & 100,000,000\tabularnewline
+RAM & 8GB & 60GB\tabularnewline
+Treads & 8 & 32\tabularnewline
+VM & yes & no\tabularnewline
+Clients & 19 & 19\tabularnewline
+\textbf{keys / sec}1 & \textbf{503K} & \textbf{94K}\tabularnewline
+\bottomrule
+\end{longtable}
+\end{frame}
+
+\hypertarget{oracledb-benchmarking}{%
+\section{OracleDB benchmarking}\label{oracledb-benchmarking}}
+
+\begin{frame}{Objective}
+\protect\hypertarget{objective-2}{}
+\begin{enumerate}
+\tightlist
+\item
+  Discover the performance benefit FORSA can offer OracleDB
+\item
+  Compare against traditional storage media
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Procedure}
+\protect\hypertarget{procedure-1}{}
+\begin{enumerate}
+\tightlist
+\item
+  Use \href{https://kevinclosson.net/slob/}{\textbf{SLOB}} (Silly Little
+  Oracle Benchmark) to drive as much I/O through to the underlying media
+  (LEM, SSD) as possible
+\item
+  Compare results between SSD and Optane
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-3}{}
+\begin{itemize}
+\tightlist
+\item
+  Lower tail latencies when using FORSA compared to SSD
+\end{itemize}
+
+\includegraphics{/home/stpeng/fb/pres_images/slob-lat-hist-optane.png}
+\includegraphics{/home/stpeng/fb/pres_images/slob-lat-hist-ssd.png}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-4}{}
+\includegraphics{/home/stpeng/fb/pres_images/slob-iops.png}
+
+\begin{itemize}
+\tightlist
+\item
+  FORSA also allows for more IOPS when the workload has mixed reads and
+  writes
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Appendix}
+\protect\hypertarget{appendix}{}
+\end{frame}
+
+\begin{frame}[fragile]{OracleDB Configuration}
+\protect\hypertarget{oracledb-configuration}{}
+\begin{verbatim}
+   1   │ _db_block_prefetch_limit=0 
+   2   │ _db_block_prefetch_quota=0 
+   3   │ _db_file_noncontig_mblock_read_count=0 
+   4   │ control_files='/u02/oradata/orcl/control01.ctl','/u02/oradata/orcl/control02.ctl' 
+   5   │ db_block_size=8192 
+   6   │ db_cache_size=128M 
+   7   │ disk_asynch_io=FALSE
+   8   │ db_create_file_dest='/u02/oradata' 
+   9   │ db_name='orcl' 
+  10   │ db_files=200 
+  11   │ compatible=19.0.0 
+  12   │ log_buffer=32M 
+  13   │ pga_aggregate_target=1G
+  14   │ processes=500 
+  15   │ recyclebin=OFF 
+  16   │ resource_manager_plan='' 
+  17   │ remote_login_passwordfile='EXCLUSIVE' 
+  18   │ shared_pool_size=1G 
+  19   │ undo_tablespace='UNDOTBS1' 
+\end{verbatim}
+\end{frame}
+
+\hypertarget{steam-data-compression}{%
+\section{Steam data compression}\label{steam-data-compression}}
+
+\begin{frame}{Objective}
+\protect\hypertarget{objective-3}{}
+\begin{enumerate}
+\tightlist
+\item
+  Understand the value BitMarker deduplication can bring to the gaming
+  industry
+\item
+  Identify the competitive advantage of FORSA over open-source
+  alternatives
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Procedure}
+\protect\hypertarget{procedure-2}{}
+\begin{enumerate}
+\tightlist
+\item
+  Download \textasciitilde200GB worth of games from Steam
+\item
+  Identify benefits from BitMarker methodology, \texttt{lessfs},
+  \texttt{zfs}, and file deduplication
+\item
+  Clone game data multiple times, to simulate a host server streaming
+  multiple copies of games from its library to subscription users
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{The Games}
+\protect\hypertarget{the-games}{}
+\includegraphics{/home/stpeng/fb/pres_images/games-size.png}
+\end{frame}
+
+\begin{frame}{Game Engines}
+\protect\hypertarget{game-engines}{}
+\includegraphics{/home/stpeng/fb/pres_images/engine-size.png}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-5}{}
+\begin{itemize}
+\tightlist
+\item
+  BitMarker outperforms other deduplication approaches when applied to
+  game data.
+\end{itemize}
+
+\includegraphics{/home/stpeng/fb/pres_images/game-gb-saved.png}
+\includegraphics{/home/stpeng/fb/pres_images/game-pct-saved.png}
+\end{frame}
+
+\begin{frame}{Results}
+\protect\hypertarget{results-6}{}
+\includegraphics{/home/stpeng/fb/pres_images/games-clone.png}
+\includegraphics{/home/stpeng/fb/pres_images/games-clone-pct.png}
+
+\begin{itemize}
+\tightlist
+\item
+  As expected, cloned game data incurs no appreciable storage cost
+\end{itemize}
+\end{frame}
+
+\hypertarget{thank-you}{%
+\section{Thank You!}\label{thank-you}}
+
+\begin{frame}{Thank You!}
+\begin{itemize}
+\tightlist
+\item
+  Stay in touch!
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \href{mailto:s.peng@columbia.edu}{\nolinkurl{s.peng@columbia.edu}}
+  \item
+    \url{https://www.linkedin.com/in/stephenjpeng}
+  \end{itemize}
+\end{itemize}
+\end{frame}
